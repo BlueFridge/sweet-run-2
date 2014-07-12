@@ -13,7 +13,7 @@ public:
 	Item();
 	Item(sf::Sprite item, int index);
 	void setItem(sf::Sprite item, int index);
-	void display(sf::RenderWindow& window);
+	void display(sf::RenderWindow *window);
 	void moveItem(float x, float y);
 	void setPosition(float x, float y);
 	float getXPos();

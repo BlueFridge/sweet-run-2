@@ -22,9 +22,9 @@ void Item::setItem(sf::Sprite item, int index)
 	this->item.setOrigin(this->item.getLocalBounds().width*0.5, this->item.getLocalBounds().height*0.5);
 }
 
-void Item::display(sf::RenderWindow& window)
+void Item::display(sf::RenderWindow *window)
 {
-	window.draw(item);
+	window->draw(item);
 }
 
 void Item::moveItem(float x, float y)

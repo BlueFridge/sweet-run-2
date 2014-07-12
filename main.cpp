@@ -111,7 +111,6 @@ std::vector<Item> getItems(LevelParser *parser)
 	
 	std::vector<int> yCoors = parser->getYCoors();
 	std::vector<std::pair<int, int> > xCoors = parser->getXCoors();
-	int xCoorsSize = xCoors.size();
 	std::vector<int> takenYCoorsN;
 	
 	for(int i = 0; i < nItems; i++)
@@ -315,6 +314,7 @@ int battleStage(sf::RenderWindow *window, sf::Clock *frameClock, Players plr, st
 						inJump = true;
 						gravityTimer.restart();
 					}
+					break;
 				}
 			}
 		}
@@ -464,6 +464,85 @@ int battleStage(sf::RenderWindow *window, sf::Clock *frameClock, Players plr, st
 		window->draw(enemyText);
 		window->draw(hpBarPlayer);
 		window->draw(hpBarEnemy);
+		window->display();
+	}
+	
+	return 0;
+}
+
+//The gameover screen
+int gameOverScreen(sf::RenderWindow *window)
+{
+	int option = 0;
+	
+	sf::Text playAgainText;
+	sf::Text exitText;
+	
+	playAgainText.setFont(font);
+	exitText.setFont(font);
+	
+	playAgainText.setColor(sf::Color::Black);
+	exitText.setColor(sf::Color::Black);
+	
+	playAgainText.setString("Play again");
+	exitText.setString("Exit game");
+	
+	playAgainText.setCharacterSize(36);
+	exitText.setCharacterSize(36);
+	
+	sf::FloatRect playBounds = playAgainText.getLocalBounds();
+	sf::FloatRect exitBounds = exitText.getLocalBounds();
+	
+	playAgainText.setOrigin(playBounds.width*0.5, playBounds.height*0.5);
+	exitText.setOrigin(exitBounds.width*0.5, exitBounds.height*0.5);
+	playAgainText.setPosition(WIDTH*0.5, HEIGHT*0.5+playBounds.height*2);
+	exitText.setPosition(WIDTH*0.5, playAgainText.getPosition().y+playBounds.height*0.5+exitBounds.height*2);
+	
+	sf::RectangleShape chooser;
+	chooser.setFillColor(sf::Color::Transparent);
+	chooser.setOutlineColor(sf::Color::Red);
+	chooser.setOutlineThickness(3);
+	chooser.setSize(sf::Vector2f(playBounds.width+8, playBounds.height+20));
+	chooser.setOrigin(chooser.getLocalBounds().width*0.5, chooser.getLocalBounds().height*0.5);
+	chooser.setPosition(playAgainText.getPosition().x, playAgainText.getPosition().y);
+	
+	while(window->isOpen())
+	{
+		sf::Event ev;
+		while(window->pollEvent(ev))
+		{
+			switch(ev.type)
+			{
+				case sf::Event::Closed:
+				{
+					window->close();
+					break;
+				}
+				case sf::Event::KeyReleased:
+				{
+					if((ev.key.code == sf::Keyboard::Down) && option == 0)
+					{
+						chooser.setPosition(exitText.getPosition().x, exitText.getPosition().y+exitBounds.height*0.5);
+						option = 1;
+					}
+					else if((ev.key.code == sf::Keyboard::Up) && option == 1)
+					{
+						chooser.setPosition(playAgainText.getPosition().x, playAgainText.getPosition().y+playBounds.height*0.5);
+						option = 0;
+					}
+					else if(ev.key.code == sf::Keyboard::Return)
+					{
+						return option;
+					}
+					break;
+				}
+			}
+		}
+		
+		window->clear(sf::Color::White);
+		window->draw(playAgainText);
+		window->draw(exitText);
+		window->draw(chooser);
 		window->display();
 	}
 	
@@ -659,7 +738,7 @@ int main()
 		window.clear(sf::Color::White);
 		window.draw(stageSprite);
 		Player.draw(&window);
-		for(int i = 0; i < itemVector.size(); i++)
+		for(int i = 0; i < itemVector.size();)
 		{
 			if(itemVector[i].checkCollision(Player))
 			{
@@ -691,9 +770,13 @@ int main()
 				itemVector.erase(itemVector.begin()+i);
 				scoreText.setString("Score: "+toStr(score));
 			}
-			itemVector[i].display(window);
+			else
+			{
+				itemVector[i].display(&window);
+				i++;
+			}
 		}
-		for(int i = 0; i < enemyVector.size(); i++)
+		for(int i = 0; i < enemyVector.size();)
 		{
 			int battleResult;
 			enemyVector[i].draw(&window);
@@ -702,10 +785,28 @@ int main()
 				battleResult = battleStage(&window, &frameTimer, plr, enemyVector[i].getName(), hp);
 				hpText.setString("HP: "+toStr(hp)+"%");
 				if(battleResult == 0)
-					window.close(); //Game over screen
+				{
+					int overOption = gameOverScreen(&window);
+					if(overOption == 0)
+					{
+						hp = 100;
+						Player.setPosition(35,35);
+						enemyVector = getEnemies(&lvlParser);
+						itemVector = getItems(&lvlParser);
+						break;
+					}
+					else
+					{
+						window.close();
+					}
+				}
 				else if(battleResult == 1)
+				{
 					enemyVector.erase(enemyVector.begin()+i);
+					continue;
+				}
 			}
+			i++;
 		}
 		window.draw(hpText);
 		window.draw(scoreText);
