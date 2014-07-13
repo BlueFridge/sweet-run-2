@@ -4,6 +4,7 @@
 #include "Collision.h"
 #include "Character.h"
 #include "Item.h"
+#include <iostream>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -78,9 +79,9 @@ int setStage(sf::Texture *bgTex, std::string stagePath)
 }
 
 //Updates the stage sprite
-void updateStage(sf::Texture *bgTex, sf::Sprite *bgSpr)
+void updateStage(sf::Texture *bgTex, sf::Sprite &bgSpr)
 {
-	bgSpr->setTexture(*bgTex);
+	bgSpr.setTexture(*bgTex);
 }
 
 //Checks whether an element is present in a vector or not
@@ -297,7 +298,7 @@ int battleStage(sf::RenderWindow *window, sf::Clock *frameClock, Players plr, st
 			{
 				case sf::Event::Closed:
 				{
-					return -1;
+					return 0;
 					break;
 				}
 				case sf::Event::KeyPressed:
@@ -669,10 +670,10 @@ int main()
 	//--//
 	
 	//Set the initial level
-	sf::Texture stageTexture;
+	sf::Texture *stageTexture = new sf::Texture;
 	sf::Sprite stageSprite;
-	setStage(&stageTexture, lvlParser.getStageFile());
-	updateStage(&stageTexture, &stageSprite);
+	setStage(stageTexture, lvlParser.getStageFile());
+	updateStage(stageTexture, stageSprite);
 	//--//
 	
 	//Get the enemy vector
@@ -719,6 +720,7 @@ int main()
 			}
 		}
 		
+		//Player movement
 		if(sf::Keyboard::isKeyPressed(sf::Keyboard::Right))
 		{
 			if(Player.getDirection() == LEFT)
@@ -831,8 +833,25 @@ int main()
 		}
 		window.draw(hpText);
 		window.draw(scoreText);
+		
+		if(itemVector.size() == 0 && enemyVector.size() == 0 && level < levelVector.size())
+		{
+			level++;
+			delete stageTexture;
+			stageTexture = new sf::Texture;
+			lvlParser.setLevelFile(levelVector[level]);
+			lvlParser.parseFile();
+			enemyVector = getEnemies(&lvlParser);
+			itemVector = getItems(&lvlParser);
+			setStage(stageTexture, lvlParser.getStageFile());
+			updateStage(stageTexture, stageSprite);
+			Player.setPosition(35,35);
+		}
+		
 		window.display();
 	}
+	
+	delete stageTexture;
 	
 	return 0;
 }
