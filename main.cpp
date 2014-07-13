@@ -337,12 +337,12 @@ int battleStage(sf::RenderWindow *window, sf::Clock *frameClock, Players plr, st
 		}
 		
 		//If 0, move left
-		if((enemyMovDir == 0) && (enemySprite.getPosition().x-enemySprite.getLocalBounds().width > divider.getPosition().x))
+		if((enemyMovDir == 0) && (enemySprite.getPosition().x-enemySprite.getLocalBounds().width > divider.getPosition().x) && !enemyInJump)
 		{
 			enemySprite.move(-MOVSPEED*delta*1.5, 0);
 		}
 		//If 1, move right
-		else if((enemyMovDir == 1) && (enemySprite.getPosition().x < WIDTH-20))
+		else if((enemyMovDir == 1) && (enemySprite.getPosition().x < WIDTH-20) && !enemyInJump)
 		{
 			enemySprite.move(MOVSPEED*delta*1.5, 0);
 		}
@@ -471,9 +471,24 @@ int battleStage(sf::RenderWindow *window, sf::Clock *frameClock, Players plr, st
 }
 
 //The gameover screen
-int gameOverScreen(sf::RenderWindow *window)
+int gameOverScreen(sf::RenderWindow *window, unsigned int &score)
 {
 	int option = 0;
+	
+	sf::Text detailsText;
+	detailsText.setString("Score: "+toStr(score));
+	detailsText.setFont(font);
+	detailsText.setCharacterSize(30);
+	detailsText.setPosition(0,0);
+	detailsText.setColor(sf::Color::Black);
+	
+	sf::Text overText;
+	overText.setString("Game Over!");
+	overText.setFont(font);
+	overText.setCharacterSize(42);
+	overText.setColor(sf::Color::Black);
+	overText.setOrigin(overText.getLocalBounds().width*0.5, overText.getLocalBounds().height*0.5);
+	overText.setPosition(WIDTH*0.5, HEIGHT*0.5);
 	
 	sf::Text playAgainText;
 	sf::Text exitText;
@@ -495,8 +510,8 @@ int gameOverScreen(sf::RenderWindow *window)
 	
 	playAgainText.setOrigin(playBounds.width*0.5, playBounds.height*0.5);
 	exitText.setOrigin(exitBounds.width*0.5, exitBounds.height*0.5);
-	playAgainText.setPosition(WIDTH*0.5, HEIGHT*0.5+playBounds.height*2);
-	exitText.setPosition(WIDTH*0.5, playAgainText.getPosition().y+playBounds.height*0.5+exitBounds.height*2);
+	playAgainText.setPosition(WIDTH*0.5, HEIGHT*0.5+playBounds.height*3);
+	exitText.setPosition(WIDTH*0.5, playAgainText.getPosition().y+playBounds.height*0.5+exitBounds.height+10);
 	
 	sf::RectangleShape chooser;
 	chooser.setFillColor(sf::Color::Transparent);
@@ -504,7 +519,7 @@ int gameOverScreen(sf::RenderWindow *window)
 	chooser.setOutlineThickness(3);
 	chooser.setSize(sf::Vector2f(playBounds.width+8, playBounds.height+20));
 	chooser.setOrigin(chooser.getLocalBounds().width*0.5, chooser.getLocalBounds().height*0.5);
-	chooser.setPosition(playAgainText.getPosition().x, playAgainText.getPosition().y);
+	chooser.setPosition(playAgainText.getPosition().x+3, playAgainText.getPosition().y+playBounds.height*0.5-5);
 	
 	while(window->isOpen())
 	{
@@ -522,12 +537,12 @@ int gameOverScreen(sf::RenderWindow *window)
 				{
 					if((ev.key.code == sf::Keyboard::Down) && option == 0)
 					{
-						chooser.setPosition(exitText.getPosition().x, exitText.getPosition().y+exitBounds.height*0.5);
+						chooser.setPosition(exitText.getPosition().x+3, exitText.getPosition().y+exitBounds.height*0.5-5);
 						option = 1;
 					}
 					else if((ev.key.code == sf::Keyboard::Up) && option == 1)
 					{
-						chooser.setPosition(playAgainText.getPosition().x, playAgainText.getPosition().y+playBounds.height*0.5);
+						chooser.setPosition(playAgainText.getPosition().x+3, playAgainText.getPosition().y+playBounds.height*0.5-5);
 						option = 0;
 					}
 					else if(ev.key.code == sf::Keyboard::Return)
@@ -540,6 +555,8 @@ int gameOverScreen(sf::RenderWindow *window)
 		}
 		
 		window->clear(sf::Color::White);
+		window->draw(detailsText);
+		window->draw(overText);
 		window->draw(playAgainText);
 		window->draw(exitText);
 		window->draw(chooser);
@@ -747,8 +764,12 @@ int main()
 				{
 					case -1:
 					{
-						hp = 100;
-						hpText.setString("HP: "+toStr(hp)+"%");
+						if(hp < 100)
+						{
+							hp += 10;
+							hpText.setString("HP: "+toStr(hp)+"%");
+						}
+						score += 5;
 						break;
 					}
 					case 0:
@@ -786,7 +807,7 @@ int main()
 				hpText.setString("HP: "+toStr(hp)+"%");
 				if(battleResult == 0)
 				{
-					int overOption = gameOverScreen(&window);
+					int overOption = gameOverScreen(&window, score);
 					if(overOption == 0)
 					{
 						hp = 100;
