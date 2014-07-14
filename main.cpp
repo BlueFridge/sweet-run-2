@@ -71,17 +71,18 @@ std::vector<std::string> getLevelList(std::string levelStr)
 }
 
 //Loads the stage and sets a given sf::Texture to it.
-int setStage(sf::Texture *bgTex, std::string stagePath)
+int setStage(sf::Texture &bgTex, std::string stagePath)
 {
-	if(!bgTex->loadFromFile(stagePath))
+	if(!bgTex.loadFromFile(stagePath))
 		return 1;
-	return 0;
+	else
+		return 0;
 }
 
 //Updates the stage sprite
-void updateStage(sf::Texture *bgTex, sf::Sprite &bgSpr)
+void updateStage(sf::Texture &bgTex, sf::Sprite &bgSpr)
 {
-	bgSpr.setTexture(*bgTex);
+	bgSpr.setTexture(bgTex);
 }
 
 //Checks whether an element is present in a vector or not
@@ -670,10 +671,42 @@ int main()
 	//--//
 	
 	//Set the initial level
-	sf::Texture *stageTexture = new sf::Texture;
+	sf::Texture *stageTextures = new sf::Texture[levelVector.size()];
+	
+	//Fill the stageTextures array
+	for(int i = 0; i < levelVector.size(); i++)
+	{
+		sf::Texture tempTex;
+		stageTextures[i] = tempTex;
+	}
+	
 	sf::Sprite stageSprite;
-	setStage(stageTexture, lvlParser.getStageFile());
-	updateStage(stageTexture, stageSprite);
+	setStage(stageTextures[level], lvlParser.getStageFile());
+	updateStage(stageTextures[level], stageSprite);
+	//--//
+	
+	//Level name message display stuff
+	sf::Clock levelNameDisplayClock; //Used to display "level cleared" message
+	sf::Text levelNameText;
+	bool displayLevelText = true;
+	levelNameText.setFont(font);
+	levelNameText.setString(lvlParser.getLevelName());
+	levelNameText.setCharacterSize(50);
+	levelNameText.setOrigin(levelNameText.getLocalBounds().width*0.5, levelNameText.getLocalBounds().height*0.5);
+	levelNameText.setPosition(WIDTH*0.5, HEIGHT*0.5);
+	levelNameText.setColor(sf::Color::Red);
+	//--//
+	
+	//"Level cleared" message display stuff
+	sf::Clock levelClearClock; //Used to display "level cleared" message
+	sf::Text levelClearedText;
+	bool displayClearedText = false;
+	levelClearedText.setFont(font);
+	levelClearedText.setString("Level Cleared!");
+	levelClearedText.setCharacterSize(50);
+	levelClearedText.setOrigin(levelClearedText.getLocalBounds().width*0.5, levelClearedText.getLocalBounds().height*0.5);
+	levelClearedText.setPosition(WIDTH*0.5, HEIGHT*0.5);
+	levelClearedText.setColor(sf::Color::Red);
 	//--//
 	
 	//Get the enemy vector
@@ -757,6 +790,7 @@ int main()
 		window.clear(sf::Color::White);
 		window.draw(stageSprite);
 		Player.draw(&window);
+		
 		for(int i = 0; i < itemVector.size();)
 		{
 			if(itemVector[i].checkCollision(Player))
@@ -799,6 +833,7 @@ int main()
 				i++;
 			}
 		}
+		
 		for(int i = 0; i < enemyVector.size();)
 		{
 			int battleResult;
@@ -831,27 +866,48 @@ int main()
 			}
 			i++;
 		}
+		
 		window.draw(hpText);
 		window.draw(scoreText);
 		
-		if(itemVector.size() == 0 && enemyVector.size() == 0 && level < levelVector.size())
+		if(itemVector.size() == 0 && enemyVector.size() == 0 && !displayClearedText)
+		{
+			levelClearClock.restart();
+			displayClearedText = true;
+		}
+		else if(displayClearedText && levelClearClock.getElapsedTime().asSeconds() <= 2)
+		{
+			window.draw(levelClearedText);
+		}
+		else if(itemVector.size() == 0 && enemyVector.size() == 0 && level < levelVector.size())
 		{
 			level++;
-			delete stageTexture;
-			stageTexture = new sf::Texture;
 			lvlParser.setLevelFile(levelVector[level]);
 			lvlParser.parseFile();
 			enemyVector = getEnemies(&lvlParser);
 			itemVector = getItems(&lvlParser);
-			setStage(stageTexture, lvlParser.getStageFile());
-			updateStage(stageTexture, stageSprite);
-			Player.setPosition(35,35);
+			setStage(stageTextures[level], lvlParser.getStageFile());
+			updateStage(stageTextures[level], stageSprite);
+			displayClearedText = false;
+			displayLevelText = true;
+			levelNameText.setString(lvlParser.getLevelName());
+			levelNameDisplayClock.restart();
+			Player.setPosition(31,31);
 		}
 		
+		if(displayLevelText && levelNameDisplayClock.getElapsedTime().asSeconds() <= 2)
+		{
+			window.draw(levelNameText);
+		}
+		else
+		{
+			displayLevelText = false;
+		}
+
 		window.display();
 	}
 	
-	delete stageTexture;
+	delete[] stageTextures;
 	
 	return 0;
 }
