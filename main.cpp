@@ -1,5 +1,6 @@
 #include <SFML/System.hpp>
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
 #include "LevelParser.h"
 #include "Collision.h"
 #include "Character.h"
@@ -17,15 +18,20 @@ const int WIDTH = 800;
 const int HEIGHT = 500;
 const int BPP = 32;
 const int MOVSPEED = 100;
+const int MAXHP = 100;
 enum Players {SALAH, MOEEZ};
+std::string buildNumber("Copyright(c) 2014 - Ahnaf Tahmid. Build 160714.1");
 
-//Textures, fonts and sprites
+//Textures, fonts, sounds and sprites
 sf::Texture bFrameTex;
 sf::Texture bStageTex;
 sf::Texture itemsTex;
-sf::Font font;
+sf::Texture backgroundTexture;
+sf::Texture menuBgTex;
 sf::Texture smallCharacters;
 sf::Texture bigCharacters;
+sf::Font font;
+sf::Sprite backgroundSprite;
 sf::Sprite player;
 sf::Sprite enemy;
 sf::Sprite shadyBig;
@@ -33,6 +39,7 @@ sf::Sprite ninjaBig;
 sf::Sprite cyborgBig;
 sf::Sprite blueBig;
 sf::Sprite devilBig;
+sf::Sprite bossBig;
 sf::Sprite bFrameSprite;
 sf::Sprite bStageSprite;
 sf::Sprite bullet;
@@ -40,10 +47,26 @@ sf::Sprite candyPurple;
 sf::Sprite sweet;
 sf::Sprite candyYellow;
 sf::Sprite healthPotion;
+sf::Music menuMusic;
+sf::Music battleMusic;
+sf::Music bgMusic;
+sf::Music overMusic;
+sf::Music storyMusic;
+sf::SoundBuffer hitSB;
+sf::SoundBuffer fightSB;
+sf::SoundBuffer lcSB;
+sf::SoundBuffer ocSB;
+sf::SoundBuffer pickSB;
+sf::Sound hitSound;
+sf::Sound fightVoice;
+sf::Sound levelcompleteSound;
+sf::Sound optionSound;
+sf::Sound pickSound;
 Item CandyItemP;
 Item CandyItemY;
 Item SweetItem;
 Item hpPotionItem;
+bool playSound = true;
 
 //Converts something to its string representation
 template<class T>
@@ -209,9 +232,370 @@ std::vector<Character> getEnemies(LevelParser *parser)
 	return enemyVect;
 }
 
+//Character chooser and story line
+int storyLine(sf::RenderWindow &window, Players* playerE)
+{
+	sf::Texture scrollTex;
+	if(!scrollTex.loadFromFile("sprites/scroll.png"))
+		return 1;
+	
+	sf::Sprite scrollSprite;
+	scrollSprite.setTexture(scrollTex);
+	
+	sf::Sprite bgSprite;
+	bgSprite.setTexture(menuBgTex);
+	
+	std::string story("Welcome young demon warrior. Thy king hath called thou as duty hath called.\nThy realm of Sweetria hath been infiltrated by the Demons from thy Artificial Hell\nPit.Their motives aren't certain but we believe they want to stealeth thy sweet\nsupplies.Then they shalt let their leader Gerefeis The Dark Lord in thy realm to\ncorrupt it.We can't let this happen. So thou shalt get into thy realm and slayeth any\ndemon that gets in thou's way. While thou is at it, collect all the sweets.\n\nThy king hath written thy instructions for thou: \nNormal levels:\nMovement = Arrow Keys\n\nBattle stage:\nMovement: Left/Right arrow keys\nJump: Up arrow key\nHit: Space\n\n\t\tMay good luck be with thou, young demon warrior!");
+	
+	int storyLength = story.length();
+	int nchar = 0;
+	
+	sf::Text storyText;
+	sf::Text headingText;
+	sf::Text moeezText;
+	sf::Text salahText;
+	
+	storyText.setFont(font);
+	storyText.setCharacterSize(15);
+	storyText.setColor(sf::Color::Black);
+	storyText.setPosition(80,85);
+	
+	headingText.setFont(font);
+	headingText.setCharacterSize(50);
+	headingText.setColor(sf::Color::Black);
+	headingText.setString("Choose character: ");
+	headingText.setOrigin(headingText.getLocalBounds().width*0.5, headingText.getLocalBounds().height*0.5);
+	headingText.setPosition(WIDTH*0.5, HEIGHT*0.5-100);
+	
+	moeezText.setFont(font);
+	moeezText.setColor(sf::Color::Black);
+	moeezText.setCharacterSize(18);
+	moeezText.setString("Moeez");
+	
+	salahText.setFont(font);
+	salahText.setColor(sf::Color::Black);
+	salahText.setCharacterSize(18);
+	salahText.setString("Salah");
+	
+	
+	sf::Sprite charSpriteOne;
+	sf::Sprite charSpriteTwo;
+	charSpriteOne.setTexture(bigCharacters);
+	charSpriteTwo.setTexture(bigCharacters);
+	charSpriteOne.setTextureRect(sf::IntRect(22,27,100,102));
+	charSpriteTwo.setTextureRect(sf::IntRect(163,9,112,118));
+	
+	charSpriteOne.setPosition(142, 280);
+	charSpriteTwo.setPosition(532, charSpriteOne.getPosition().y-5);
+	salahText.setPosition(charSpriteOne.getPosition().x+25, charSpriteOne.getPosition().y+charSpriteOne.getLocalBounds().height+5);
+	moeezText.setPosition(charSpriteTwo.getPosition().x+25, charSpriteTwo.getPosition().y+charSpriteTwo.getLocalBounds().height+5);
+	
+	sf::RectangleShape chooser;
+	chooser.setSize(sf::Vector2f(120,150));
+	chooser.setFillColor(sf::Color::Transparent);
+	chooser.setOutlineThickness(2);
+	chooser.setOutlineColor(sf::Color::Red);
+	chooser.setPosition(charSpriteOne.getPosition().x-5, charSpriteOne.getPosition().y-10);
+	int chooserPos = 0;
+	
+	int menuState = 0;
+	
+	sf::Text playText;
+	playText.setFont(font);
+	playText.setString("Play now");
+	playText.setColor(sf::Color::Black);
+	playText.setCharacterSize(30);
+	playText.setPosition(585,455);
+	
+	sf::Clock storyClock;
+	
+	if(playSound)
+		storyMusic.play();
+	
+	while(window.isOpen())
+	{
+		sf::Event ev;
+		while(window.pollEvent(ev))
+		{
+			switch(ev.type)
+			{
+				case sf::Event::Closed:
+				{
+					storyMusic.stop();
+					return 1;
+					break;
+				}
+				case sf::Event::KeyPressed:
+				{
+					if(ev.key.code == sf::Keyboard::Right && chooserPos == 0 && menuState == 0)
+					{
+						if(playSound)
+							optionSound.play();
+						chooserPos = 1;
+						chooser.setPosition(charSpriteTwo.getPosition().x, charSpriteTwo.getPosition().y);
+					}
+					else if(ev.key.code == sf::Keyboard::Left && chooserPos == 1 && menuState == 0)
+					{
+						if(playSound)
+							optionSound.play();
+						chooserPos = 0;
+						chooser.setPosition(charSpriteOne.getPosition().x-5, charSpriteOne.getPosition().y-10);
+					}
+					else if(ev.key.code == sf::Keyboard::Return && menuState == 0)
+					{
+						switch(chooserPos)
+						{
+							case 0:
+								*playerE = SALAH;
+								break;
+							case 1:
+								*playerE = MOEEZ;
+								break;
+						}
+						
+						chooser.setSize(sf::Vector2f(playText.getLocalBounds().width, playText.getLocalBounds().height+12));
+						chooser.setPosition(playText.getPosition().x, playText.getPosition().y);
+						menuState = 1;
+					}
+					else if(ev.key.code == sf::Keyboard::Return && menuState == 1)
+					{
+						storyMusic.stop();
+						return 0;
+					}
+					break;
+				}
+			}
+		}
+		
+		if(menuState == 0)
+		{
+			window.clear(sf::Color::Black);
+			window.draw(bgSprite);
+			window.draw(scrollSprite);
+			window.draw(headingText);
+			window.draw(charSpriteOne);
+			window.draw(charSpriteTwo);
+			window.draw(moeezText);
+			window.draw(salahText);
+			window.draw(chooser);
+			window.display();
+		}
+		else if(menuState == 1)
+		{
+			if((storyClock.getElapsedTime().asSeconds() > 0.06) && (nchar < storyLength))
+			{
+				nchar++;
+				storyText.setString(story.substr(0,nchar));
+				storyClock.restart();
+			}
+		
+			window.clear(sf::Color::Black);
+			window.draw(bgSprite);
+			window.draw(scrollSprite);
+			window.draw(storyText);
+			window.draw(playText);
+			window.draw(chooser);
+			window.display();
+		}
+	}
+	
+	return 1;
+}
+
+//The main menu
+int menuScreen(sf::RenderWindow &window)
+{
+	sf::Texture headingTex;
+	if(!headingTex.loadFromFile("sprites/heading.PNG"))
+		return 1;
+	
+	sf::Sprite bgSprite;
+	sf::Sprite headingSprite;
+	bgSprite.setTexture(menuBgTex);
+	headingSprite.setTexture(headingTex);
+	headingSprite.setOrigin(headingSprite.getLocalBounds().width*0.5,0);
+	headingSprite.setPosition(WIDTH*0.5,50);
+	
+	sf::Text playText;
+	sf::Text optionText;
+	sf::Text exitTxt;
+	sf::Text soundOnText;
+	sf::Text soundOffText;
+	
+	playText.setFont(font);
+	optionText.setFont(font);
+	exitTxt.setFont(font);
+	soundOnText.setFont(font);
+	soundOffText.setFont(font);
+	
+	playText.setString("Play game");
+	optionText.setString("Options");
+	exitTxt.setString("Exit game");
+	soundOnText.setString("On");
+	soundOffText.setString("Off");
+	
+	playText.setColor(sf::Color::Black);
+	optionText.setColor(sf::Color::Black);
+	exitTxt.setColor(sf::Color::Black);
+	soundOnText.setColor(sf::Color::Black);
+	soundOffText.setColor(sf::Color::Black);
+	
+	playText.setCharacterSize(38);
+	optionText.setCharacterSize(38);
+	exitTxt.setCharacterSize(38);
+	soundOnText.setCharacterSize(38);
+	soundOffText.setCharacterSize(38);
+	
+	playText.setOrigin(playText.getLocalBounds().width*0.5, playText.getLocalBounds().height*0.5);
+	optionText.setOrigin(optionText.getLocalBounds().width*0.5, optionText.getLocalBounds().height*0.5);
+	exitTxt.setOrigin(exitTxt.getLocalBounds().width*0.5, exitTxt.getLocalBounds().height*0.5);
+	soundOnText.setOrigin(soundOnText.getLocalBounds().width*0.5, soundOnText.getLocalBounds().height*0.5);
+	soundOffText.setOrigin(soundOffText.getLocalBounds().width*0.5, soundOffText.getLocalBounds().height*0.5);
+
+	playText.setPosition(WIDTH*0.5,230);
+	optionText.setPosition(WIDTH*0.5,playText.getPosition().y+playText.getLocalBounds().height*2);
+	exitTxt.setPosition(WIDTH*0.5,optionText.getPosition().y+optionText.getLocalBounds().height*2);
+	soundOnText.setPosition(WIDTH*0.5-soundOnText.getLocalBounds().width,optionText.getPosition().y);
+	soundOffText.setPosition(WIDTH*0.5+soundOffText.getLocalBounds().width,soundOnText.getPosition().y);
+	
+	sf::Vector2f chooserPositions[3];
+	chooserPositions[0] = sf::Vector2f(playText.getPosition().x, playText.getPosition().y+playText.getLocalBounds().height*0.5-2);
+	chooserPositions[1] = sf::Vector2f(optionText.getPosition().x, optionText.getPosition().y+optionText.getLocalBounds().height*0.5-2);
+	chooserPositions[2] = sf::Vector2f(exitTxt.getPosition().x, exitTxt.getPosition().y+exitTxt.getLocalBounds().height*0.5-2);
+	
+	sf::Vector2f soundPositions[2];
+	sf::FloatRect soLB = soundOnText.getLocalBounds();
+	sf::FloatRect sofLB = soundOffText.getLocalBounds();
+	soundPositions[0] = sf::Vector2f(soundOnText.getPosition().x+soLB.width+soLB.width*0.5-4, soundOnText.getPosition().y+soLB.height*0.5-4);
+	soundPositions[1] = sf::Vector2f(soundOffText.getPosition().x+sofLB.width+7, soundOffText.getPosition().y+sofLB.height*0.5-4);
+	
+	short soundOption = 0;
+	int option = 0;
+	
+	sf::Vector2f menuChooserSize(226,55);
+	sf::Vector2f soundChooserSize(soundOffText.getLocalBounds().width+4,55);
+	
+	sf::RectangleShape chooser;
+	chooser.setSize(menuChooserSize);
+	chooser.setFillColor(sf::Color::Transparent);
+	chooser.setOutlineThickness(3);
+	chooser.setOutlineColor(sf::Color(176,0,0));
+	chooser.setOrigin(chooser.getLocalBounds().width*0.5, chooser.getLocalBounds().height*0.5);
+	chooser.setPosition(chooserPositions[option]);
+	
+	sf::Text buildText;
+	buildText.setFont(font);
+	buildText.setCharacterSize(14);
+	buildText.setColor(sf::Color::Black);
+	buildText.setString(buildNumber);
+	buildText.setOrigin(0,buildText.getLocalBounds().height);
+	buildText.setPosition(0,HEIGHT-10);
+	
+	bool showSoundMenu = false;
+	
+	menuMusic.play();
+	
+	while(window.isOpen())
+	{
+		sf::Event ev;
+		while(window.pollEvent(ev))
+		{
+			switch(ev.type)
+			{
+				case sf::Event::Closed:
+				{
+					menuMusic.stop();
+					window.close();
+					break;
+				}
+				case sf::Event::KeyPressed:
+				{
+					if(ev.key.code == sf::Keyboard::Up && option > 0)
+					{
+						option--;
+						chooser.setPosition(chooserPositions[option]);
+						if(playSound)
+							optionSound.play();
+					}
+					else if(ev.key.code == sf::Keyboard::Down && option < 2)
+					{
+						option++;
+						chooser.setPosition(chooserPositions[option]);
+						if(playSound)
+							optionSound.play();
+					}
+					else if(ev.key.code == sf::Keyboard::Left && soundOption == 1 && showSoundMenu)
+					{
+						soundOption = 0;
+						chooser.setPosition(soundPositions[soundOption]);
+						if(playSound)
+							optionSound.play();
+					}
+					else if(ev.key.code == sf::Keyboard::Right && soundOption == 0 && showSoundMenu)
+					{
+						soundOption = 1;
+						chooser.setPosition(soundPositions[soundOption]);
+						if(playSound)
+							optionSound.play();
+					}
+					else if(ev.key.code == sf::Keyboard::Return && showSoundMenu)
+					{
+						if(soundOption == 0)
+						{
+							playSound = true;
+							menuMusic.play();
+						}
+						else
+						{
+							playSound = false;
+							menuMusic.stop();
+						}
+						showSoundMenu = false;
+						chooser.setSize(menuChooserSize);
+						chooser.setPosition(chooserPositions[option]);
+					}
+					else if(ev.key.code == sf::Keyboard::Return && option != 1)
+					{
+						menuMusic.stop();
+						return option;
+					}
+					else if(ev.key.code == sf::Keyboard::Return && option == 1)
+					{
+						showSoundMenu = true;
+						chooser.setSize(soundChooserSize);
+						chooser.setPosition(soundPositions[soundOption]);
+					}
+					break;
+				}
+			}
+		}
+		
+		window.clear(sf::Color::Black);
+		window.draw(bgSprite);
+		window.draw(headingSprite);
+		window.draw(buildText);
+		if(showSoundMenu)
+		{
+			window.draw(soundOnText);
+			window.draw(soundOffText);
+			window.draw(chooser);
+			window.display();
+			continue;
+		}
+		window.draw(playText);
+		window.draw(optionText);
+		window.draw(exitTxt);
+		window.draw(chooser);
+		window.display();
+	}
+	
+	return 0;
+}
+
 //The battle stage
 int battleStage(sf::RenderWindow *window, sf::Clock *frameClock, Players plr, std::string enemyName, int &hp)
 {
+	//Set up the HP labels
 	sf::Text playerText;
 	sf::Text enemyText;
 	playerText.setFont(font);
@@ -225,13 +609,18 @@ int battleStage(sf::RenderWindow *window, sf::Clock *frameClock, Players plr, st
 	playerText.setPosition(21,21);
 	enemyText.setPosition(21,playerText.getLocalBounds().height+30);
 	
-	int enemyHP = 100;
+	//Enemy HP
+	int enemyHP = MAXHP;
+	if(enemyName == "Boss")
+		enemyHP += 50;
 	
+	//Player HP bar
 	sf::RectangleShape hpBarPlayer;
 	hpBarPlayer.setSize(sf::Vector2f(hp*2,15));
 	hpBarPlayer.setFillColor(sf::Color::Red);
 	hpBarPlayer.setPosition(playerText.getPosition().x+playerText.getLocalBounds().width, playerText.getPosition().y);
 	
+	//Enemy HP bar
 	sf::RectangleShape hpBarEnemy;
 	hpBarEnemy.setSize(sf::Vector2f(enemyHP*2,15));
 	hpBarEnemy.setFillColor(sf::Color::Yellow);
@@ -240,12 +629,14 @@ int battleStage(sf::RenderWindow *window, sf::Clock *frameClock, Players plr, st
 	sf::Sprite playerSprite;
 	sf::Sprite enemySprite;
 	
+	//The divider (invisible) - separates the player from the enemy
 	sf::RectangleShape divider;
 	divider.setSize(sf::Vector2f(1,HEIGHT));
 	divider.setOrigin(divider.getLocalBounds().width*0.5, divider.getLocalBounds().height*0.5);
 	divider.setPosition(WIDTH*0.5, HEIGHT*0.5);
 	divider.setFillColor(sf::Color::Transparent);
 	
+	//Set the player sprite
 	switch(plr)
 	{
 		case SALAH:
@@ -256,13 +647,17 @@ int battleStage(sf::RenderWindow *window, sf::Clock *frameClock, Players plr, st
 			break;
 	}
 	
+	//Set the enemy sprite
 	if(enemyName == "Devil")
 		enemySprite = devilBig;
 	else if(enemyName == "Blue")
 		enemySprite = blueBig;
 	else if(enemyName == "Cyborg")
 		enemySprite = cyborgBig;
+	else if(enemyName == "Boss")
+		enemySprite = bossBig;
 	
+	//Set the character positions
 	playerSprite.setOrigin(0, playerSprite.getLocalBounds().height);
 	enemySprite.setOrigin(enemySprite.getLocalBounds().width, enemySprite.getLocalBounds().height);
 	int yPosChar = 480;
@@ -271,23 +666,48 @@ int battleStage(sf::RenderWindow *window, sf::Clock *frameClock, Players plr, st
 	
 	float delta;
 	
+	//Used for moving the enemy
 	sf::Clock enemyMovClock;
 	int enemyMovDir = 0;
 	
+	//Used for controlling the bullets
 	std::vector<sf::Sprite> bulletVector;
 	sf::Clock bulletTimer;
 	
+	//Same as above but for enemy bullets
 	std::vector<sf::Sprite> enemyBulletVector;
 	sf::Clock enemyBulletTimer;
 	
+	//Used to handle jump (player)
 	sf::Clock gravityTimer;
 	bool inJump = false;
 	float upDownVelocity = 500;
 	int jumpHeight = 25;
 	
+	//Used to handle jump (enemy)
 	sf::Clock enemyGravityTimer;
 	bool enemyInJump = false;
 	bool shouldJump = false;
+	
+	//Used to display the "FIGHT! message"
+	sf::Text fightText;
+	fightText.setFont(font);
+	if(!(enemyName == "Boss"))
+		fightText.setString("FIGHT!");
+	else
+		fightText.setString("BOSS FIGHT!");
+	fightText.setCharacterSize(50);
+	fightText.setColor(sf::Color::Red);
+	fightText.setOrigin(fightText.getLocalBounds().width*0.5, fightText.getLocalBounds().height*0.5);
+	fightText.setPosition(WIDTH*0.5, HEIGHT*0.5);
+	
+	sf::Clock fightClock;
+	
+	if(playSound)
+	{
+		fightVoice.play();
+		battleMusic.play();
+	}
 	
 	while(window->isOpen())
 	{
@@ -299,7 +719,8 @@ int battleStage(sf::RenderWindow *window, sf::Clock *frameClock, Players plr, st
 			{
 				case sf::Event::Closed:
 				{
-					return 0;
+					battleMusic.stop();
+					return -1;
 					break;
 				}
 				case sf::Event::KeyPressed:
@@ -414,11 +835,16 @@ int battleStage(sf::RenderWindow *window, sf::Clock *frameClock, Players plr, st
 			}
 			else if(Collision::CircleTest(bulletVector[i], enemySprite))
 			{
+				if(playSound)
+					hitSound.play();
 				enemyHP -= 10;
 				hpBarEnemy.setSize(sf::Vector2f(enemyHP*2,15));
 				bulletVector.erase(bulletVector.begin()+i);
 				if(enemyHP == 0)
+				{	
+					battleMusic.stop();
 					return 1;
+				}
 			}
 		}
 		
@@ -439,11 +865,16 @@ int battleStage(sf::RenderWindow *window, sf::Clock *frameClock, Players plr, st
 			}
 			else if(Collision::CircleTest(enemyBulletVector[i], playerSprite))
 			{
+				if(playSound)
+					hitSound.play();
 				hp -= 10;
 				hpBarPlayer.setSize(sf::Vector2f(hp*2,15));
 				enemyBulletVector.erase(enemyBulletVector.begin()+i);
 				if(hp == 0)
+				{
+					battleMusic.stop();
 					return 0;
+				}
 			}
 		}
 		
@@ -466,6 +897,10 @@ int battleStage(sf::RenderWindow *window, sf::Clock *frameClock, Players plr, st
 		window->draw(enemyText);
 		window->draw(hpBarPlayer);
 		window->draw(hpBarEnemy);
+		if(fightClock.getElapsedTime().asSeconds() <= 2)
+		{
+			window->draw(fightText);
+		}
 		window->display();
 	}
 	
@@ -473,7 +908,7 @@ int battleStage(sf::RenderWindow *window, sf::Clock *frameClock, Players plr, st
 }
 
 //The gameover screen
-int gameOverScreen(sf::RenderWindow *window, unsigned int &score)
+int gameOverScreen(sf::RenderWindow *window, unsigned int &score, int flag)
 {
 	int option = 0;
 	
@@ -485,7 +920,10 @@ int gameOverScreen(sf::RenderWindow *window, unsigned int &score)
 	detailsText.setColor(sf::Color::Black);
 	
 	sf::Text overText;
-	overText.setString("Game Over!");
+	if(flag == 0)
+		overText.setString("Game Over!");
+	else if(flag == 1)
+		overText.setString("Game Cleared!");
 	overText.setFont(font);
 	overText.setCharacterSize(42);
 	overText.setColor(sf::Color::Black);
@@ -523,6 +961,9 @@ int gameOverScreen(sf::RenderWindow *window, unsigned int &score)
 	chooser.setOrigin(chooser.getLocalBounds().width*0.5, chooser.getLocalBounds().height*0.5);
 	chooser.setPosition(playAgainText.getPosition().x+3, playAgainText.getPosition().y+playBounds.height*0.5-5);
 	
+	if(playSound)
+		overMusic.play();
+	
 	while(window->isOpen())
 	{
 		sf::Event ev;
@@ -532,23 +973,29 @@ int gameOverScreen(sf::RenderWindow *window, unsigned int &score)
 			{
 				case sf::Event::Closed:
 				{
-					window->close();
+					overMusic.stop();
+					return -1;
 					break;
 				}
 				case sf::Event::KeyReleased:
 				{
 					if((ev.key.code == sf::Keyboard::Down) && option == 0)
 					{
+						if(playSound)
+							optionSound.play();
 						chooser.setPosition(exitText.getPosition().x+3, exitText.getPosition().y+exitBounds.height*0.5-5);
 						option = 1;
 					}
 					else if((ev.key.code == sf::Keyboard::Up) && option == 1)
 					{
+						if(playSound)
+							optionSound.play();
 						chooser.setPosition(playAgainText.getPosition().x+3, playAgainText.getPosition().y+playBounds.height*0.5-5);
 						option = 0;
 					}
 					else if(ev.key.code == sf::Keyboard::Return)
 					{
+						overMusic.stop();
 						return option;
 					}
 					break;
@@ -582,6 +1029,33 @@ bool loadStuff()
 		return false;
 	if(!itemsTex.loadFromFile("sprites/items.png"))
 		return false;
+	if(!backgroundTexture.loadFromFile("sprites/mainbg.png"))
+		return false;
+	if(!menuBgTex.loadFromFile("sprites/menubg.png"))
+		return false;
+	//--//
+	
+	//Load the sounds
+	if(!menuMusic.openFromFile("sounds/menumusic.ogg"))
+		return false;
+	if(!battleMusic.openFromFile("sounds/battlemusic.ogg"))
+		return false;
+	if(!bgMusic.openFromFile("sounds/ingamemusic.ogg"))
+		return false;
+	if(!overMusic.openFromFile("sounds/gameovermusic.ogg"))
+		return false;
+	if(!storyMusic.openFromFile("sounds/storylinemusic.ogg"))
+		return false;
+	if(!hitSB.loadFromFile("sounds/hit.wav"))
+		return false;
+	if(!fightSB.loadFromFile("sounds/fight.ogg"))
+		return false;
+	if(!lcSB.loadFromFile("sounds/levelcomplete.wav"))
+		return false;
+	if(!ocSB.loadFromFile("sounds/optionchange.wav"))
+		return false;
+	if(!pickSB.loadFromFile("sounds/pick.wav"))
+		return false;
 	//--//
 	
 	//Load the fonts
@@ -589,6 +1063,21 @@ bool loadStuff()
 		return false;
 	//--//
 	return true;
+}
+
+//Set the sounds to its buffer and let the loops of music
+void setMusic()
+{
+	menuMusic.setLoop(true);
+	battleMusic.setLoop(true);
+	bgMusic.setLoop(true);
+	overMusic.setLoop(true);
+	storyMusic.setLoop(true);
+	hitSound.setBuffer(hitSB);
+	fightVoice.setBuffer(fightSB);
+	levelcompleteSound.setBuffer(lcSB);
+	optionSound.setBuffer(ocSB);
+	pickSound.setBuffer(pickSB);
 }
 
 //Sets the sprites to their respective textures and returns the Player character
@@ -599,6 +1088,7 @@ void setSprites(Character &Player, Players whichPlayer)
 	devilBig.setTexture(bigCharacters);
 	cyborgBig.setTexture(bigCharacters);
 	blueBig.setTexture(bigCharacters);
+	bossBig.setTexture(bigCharacters);
 	enemy.setTexture(smallCharacters);
 	player.setTexture(smallCharacters);
 	bStageSprite.setTexture(bStageTex);
@@ -608,12 +1098,14 @@ void setSprites(Character &Player, Players whichPlayer)
 	sweet.setTexture(itemsTex);
 	candyYellow.setTexture(itemsTex);
 	healthPotion.setTexture(itemsTex);
+	backgroundSprite.setTexture(backgroundTexture);
 	
 	shadyBig.setTextureRect(sf::IntRect(22,27,100,102));
 	devilBig.setTextureRect(sf::IntRect(617,18,101,110));
 	cyborgBig.setTextureRect(sf::IntRect(325,25,105,102));
 	blueBig.setTextureRect(sf::IntRect(471,29,96,98));
 	ninjaBig.setTextureRect(sf::IntRect(163,9,112,118));
+	bossBig.setTextureRect(sf::IntRect(763,20,96,105));
 	bullet.setTextureRect(sf::IntRect(3,5,27,26));
 	candyPurple.setTextureRect(sf::IntRect(34,2,24,24));
 	sweet.setTextureRect(sf::IntRect(64,2,28,28));
@@ -656,10 +1148,29 @@ int main()
 	//Load the textures and fonts
 	if(!loadStuff())
 		return 1;
-		
+	setMusic();
+	
+	int menuReturnVal = menuScreen(window);
+	Players plr;
+	
+	switch(menuReturnVal)
+	{
+		case 0:
+		{
+			int storyReturnVal = storyLine(window, &plr);
+			if(storyReturnVal == 1)
+				return 0;
+			break;
+		}
+		case 2:
+		{
+			return 0;
+			break;
+		}
+	}
+	
 	Character Player;
-	int hp = 100;
-	Players plr = SALAH;
+	int hp = MAXHP;
 	setSprites(Player, plr);
 	
 	//Set up containers and stuff to hold level info
@@ -681,7 +1192,11 @@ int main()
 	}
 	
 	sf::Sprite stageSprite;
-	setStage(stageTextures[level], lvlParser.getStageFile());
+	if(setStage(stageTextures[level], lvlParser.getStageFile()) == 1)
+	{
+		delete[] stageTextures;
+		return 1;
+	}
 	updateStage(stageTextures[level], stageSprite);
 	//--//
 	
@@ -725,19 +1240,35 @@ int main()
 	sf::Text hpText;
 	sf::Text scoreText;
 	
-	hpText.setString("HP: "+toStr(hp)+"%");
+	hpText.setString("HP: "+toStr((hp/(MAXHP*1.0))*100)+"%");
 	hpText.setFont(font);
-	hpText.setCharacterSize(12);
-	hpText.setColor(sf::Color::Blue);
+	hpText.setCharacterSize(20);
+	hpText.setColor(sf::Color(255,100,6));
 	
 	scoreText.setString("Score: "+toStr(score));
 	scoreText.setFont(font);
-	scoreText.setCharacterSize(12);
-	scoreText.setColor(sf::Color::Blue);
+	scoreText.setCharacterSize(20);
+	scoreText.setColor(sf::Color(255,100,6));
 	
 	hpText.setPosition(0,0);
-	scoreText.setPosition(0,hpText.getPosition().y+hpText.getLocalBounds().height);
+	scoreText.setPosition(0,hpText.getPosition().y+hpText.getLocalBounds().height+2);
 	//--//
+	
+	//Enemy random movement stuff
+	sf::Clock enemyClock;
+	std::vector<int> enemyMovVect;
+	for(int i = 0; i < enemyVector.size(); i++)
+	{
+		int movDir = std::rand()%3;
+		enemyMovVect.push_back(movDir);
+	}
+	//--//
+	
+	//Temporary enemy vector
+	std::vector<Character> tempEnemyVector = enemyVector;
+	
+	if(playSound)
+		bgMusic.play();
 	
 	while(window.isOpen())
 	{
@@ -787,23 +1318,29 @@ int main()
 				Player.move(0,-MOVSPEED*delta);
 		}
 		
-		window.clear(sf::Color::White);
+		window.clear(sf::Color::Black);
+		window.draw(backgroundSprite);
 		window.draw(stageSprite);
 		Player.draw(&window);
 		
+		//Item handling
 		for(int i = 0; i < itemVector.size();)
 		{
 			if(itemVector[i].checkCollision(Player))
 			{
+				if(playSound)
+					pickSound.play();
 				int itemIndex = itemVector[i].getIndex();
 				switch(itemIndex)
 				{
 					case -1:
 					{
-						if(hp < 100)
+						if(hp < MAXHP)
 						{
-							hp += 10;
-							hpText.setString("HP: "+toStr(hp)+"%");
+							hp += (MAXHP/10)*2;
+							if(hp > MAXHP)
+								hp = MAXHP;
+							hpText.setString("HP: "+toStr((hp/(MAXHP*1.0))*100)+"%");
 						}
 						score += 5;
 						break;
@@ -834,22 +1371,58 @@ int main()
 			}
 		}
 		
+		//Enemy handling
+		if(enemyClock.getElapsedTime().asSeconds() > 1)
+		{
+			enemyMovVect.clear();
+			for(int i = 0; i < enemyVector.size(); i++)
+			{
+				int movDir = std::rand()%3;
+				enemyMovVect.push_back(movDir);
+			}
+			enemyClock.restart();
+		}
+		
 		for(int i = 0; i < enemyVector.size();)
 		{
+			if(enemyMovVect[i] == 1)
+			{
+				enemyVector[i].changeDirection(LEFT);
+				enemyVector[i].move(-MOVSPEED/2*delta,0);
+				if(enemyVector[i].isColliding(&stageSprite))
+					enemyVector[i].move(MOVSPEED/2*delta,0);
+				if(enemyVector[i].getPosition().x < 0)
+					enemyVector[i].setPosition(tempEnemyVector[i].getPosition().x, tempEnemyVector[i].getPosition().y);
+			}
+			else if(enemyMovVect[i] == 2)
+			{
+				enemyVector[i].changeDirection(RIGHT);
+				enemyVector[i].move(MOVSPEED/2*delta,0);
+				if(enemyVector[i].isColliding(&stageSprite))
+					enemyVector[i].move(-MOVSPEED/2*delta,0);
+				if(enemyVector[i].getPosition().x > WIDTH)
+					enemyVector[i].setPosition(tempEnemyVector[i].getPosition().x, tempEnemyVector[i].getPosition().y);
+			}
+			
 			int battleResult;
 			enemyVector[i].draw(&window);
 			if(Player.isColliding(&enemyVector[i]))
 			{
+				bgMusic.stop();
 				battleResult = battleStage(&window, &frameTimer, plr, enemyVector[i].getName(), hp);
-				hpText.setString("HP: "+toStr(hp)+"%");
+				hpText.setString("HP: "+toStr((hp/(MAXHP*1.0))*100)+"%");
 				if(battleResult == 0)
 				{
-					int overOption = gameOverScreen(&window, score);
+					bgMusic.stop();
+					int overOption = gameOverScreen(&window, score, 0);
 					if(overOption == 0)
 					{
-						hp = 100;
-						Player.setPosition(35,35);
-						enemyVector = getEnemies(&lvlParser);
+						if(playSound)
+							bgMusic.play();
+						hp = MAXHP;
+						hpText.setString("HP: "+toStr((hp/(MAXHP*1.0))*100)+"%");
+						Player.setPosition(31,31);
+						enemyVector = tempEnemyVector;
 						itemVector = getItems(&lvlParser);
 						break;
 					}
@@ -860,8 +1433,16 @@ int main()
 				}
 				else if(battleResult == 1)
 				{
+					
+					if(playSound)
+						bgMusic.play();
 					enemyVector.erase(enemyVector.begin()+i);
+					enemyMovVect.erase(enemyMovVect.begin()+i);
 					continue;
+				}
+				else
+				{
+					window.close();
 				}
 			}
 			i++;
@@ -874,25 +1455,93 @@ int main()
 		{
 			levelClearClock.restart();
 			displayClearedText = true;
+			if(playSound)
+				levelcompleteSound.play();
 		}
 		else if(displayClearedText && levelClearClock.getElapsedTime().asSeconds() <= 2)
 		{
 			window.draw(levelClearedText);
 		}
-		else if(itemVector.size() == 0 && enemyVector.size() == 0 && level < levelVector.size())
+		else if(itemVector.size() == 0 && enemyVector.size() == 0 && level < levelVector.size()-1)
 		{
 			level++;
 			lvlParser.setLevelFile(levelVector[level]);
 			lvlParser.parseFile();
 			enemyVector = getEnemies(&lvlParser);
+			tempEnemyVector = enemyVector;
 			itemVector = getItems(&lvlParser);
-			setStage(stageTextures[level], lvlParser.getStageFile());
+			if(setStage(stageTextures[level], lvlParser.getStageFile()) == 1)
+			{
+				delete[] stageTextures;
+				return 1;
+			}
 			updateStage(stageTextures[level], stageSprite);
 			displayClearedText = false;
 			displayLevelText = true;
 			levelNameText.setString(lvlParser.getLevelName());
 			levelNameDisplayClock.restart();
 			Player.setPosition(31,31);
+		}
+		else if(itemVector.size() == 0 && enemyVector.size() == 0 && level == levelVector.size()-1)
+		{
+			bgMusic.stop();
+			int battleRes = battleStage(&window, &frameTimer, plr, "Boss", hp);
+			if(battleRes == 1)
+			{
+				int overOption = gameOverScreen(&window, score, 1);
+				if(overOption == 0)
+				{
+					if(playSound)
+						bgMusic.play();
+					hp = MAXHP;
+					score = 0;
+					scoreText.setString("Score: "+toStr(score));
+					hpText.setString("HP: "+toStr((hp/(MAXHP*1.0))*100)+"%");
+					level = 0;
+					lvlParser.setLevelFile(levelVector[level]);
+					lvlParser.parseFile();
+					enemyVector = getEnemies(&lvlParser);
+					itemVector = getItems(&lvlParser);
+					if(setStage(stageTextures[level], lvlParser.getStageFile()) == 1)
+					{
+						delete[] stageTextures;
+						return 1;
+					}
+					updateStage(stageTextures[level], stageSprite);
+					displayClearedText = false;
+					displayLevelText = true;
+					levelNameText.setString(lvlParser.getLevelName());
+					levelNameDisplayClock.restart();
+					Player.setPosition(31,31);
+				}
+				else
+				{
+					window.close();
+				}
+			}
+			else if(battleRes == 0)
+			{
+				bgMusic.stop();
+				int overOption = gameOverScreen(&window, score, 0);
+				if(overOption == 0)
+				{
+					if(playSound)
+						bgMusic.play();
+					hp = MAXHP;
+					hpText.setString("HP: "+toStr((hp/(MAXHP*1.0))*100)+"%");
+					Player.setPosition(31,31);
+					enemyVector = tempEnemyVector;
+					itemVector = getItems(&lvlParser);
+				}
+				else
+				{
+					window.close();
+				}
+			}
+			else
+			{
+				window.close();
+			}
 		}
 		
 		if(displayLevelText && levelNameDisplayClock.getElapsedTime().asSeconds() <= 2)
