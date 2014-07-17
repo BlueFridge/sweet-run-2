@@ -20,7 +20,7 @@ const int BPP = 32;
 const int MOVSPEED = 100;
 const int MAXHP = 100;
 enum Players {SALAH, MOEEZ};
-std::string buildNumber("Copyright(c) 2014 - Ahnaf Tahmid. Build 160714.1");
+std::string buildNumber("Copyright(c) 2014 - Ahnaf Tahmid. Build 170714.3");
 
 //Textures, fonts, sounds and sprites
 sf::Texture bFrameTex;
@@ -57,11 +57,13 @@ sf::SoundBuffer fightSB;
 sf::SoundBuffer lcSB;
 sf::SoundBuffer ocSB;
 sf::SoundBuffer pickSB;
+sf::SoundBuffer dvSB;
 sf::Sound hitSound;
 sf::Sound fightVoice;
 sf::Sound levelcompleteSound;
 sf::Sound optionSound;
 sf::Sound pickSound;
+sf::Sound demonVoice;
 Item CandyItemP;
 Item CandyItemY;
 Item SweetItem;
@@ -612,7 +614,7 @@ int battleStage(sf::RenderWindow *window, sf::Clock *frameClock, Players plr, st
 	//Enemy HP
 	int enemyHP = MAXHP;
 	if(enemyName == "Boss")
-		enemyHP += 50;
+		enemyHP += 100;
 	
 	//Player HP bar
 	sf::RectangleShape hpBarPlayer;
@@ -705,7 +707,10 @@ int battleStage(sf::RenderWindow *window, sf::Clock *frameClock, Players plr, st
 	
 	if(playSound)
 	{
-		fightVoice.play();
+		if(!(enemyName == "Boss"))
+			fightVoice.play();
+		else
+			demonVoice.play();
 		battleMusic.play();
 	}
 	
@@ -848,8 +853,14 @@ int battleStage(sf::RenderWindow *window, sf::Clock *frameClock, Players plr, st
 			}
 		}
 		
+		bool enemyBulletTimerBool;
+		if(!(enemyName == "Boss"))
+			enemyBulletTimerBool = enemyBulletTimer.getElapsedTime().asSeconds() >= 2;
+		else
+			enemyBulletTimerBool = enemyBulletTimer.getElapsedTime().asSeconds() >= 1;
+		
 		//Enemy bullet handling
-		if(enemyBulletTimer.getElapsedTime().asSeconds() >= 2)
+		if(enemyBulletTimerBool)
 		{
 			enemyBulletVector.push_back(bullet);
 			enemyBulletVector.back().setPosition(enemySprite.getPosition().x-enemySprite.getLocalBounds().width*0.5,
@@ -1056,6 +1067,8 @@ bool loadStuff()
 		return false;
 	if(!pickSB.loadFromFile("sounds/pick.wav"))
 		return false;
+	if(!dvSB.loadFromFile("sounds/demonvoice.ogg"))
+		return false;
 	//--//
 	
 	//Load the fonts
@@ -1078,6 +1091,7 @@ void setMusic()
 	levelcompleteSound.setBuffer(lcSB);
 	optionSound.setBuffer(ocSB);
 	pickSound.setBuffer(pickSB);
+	demonVoice.setBuffer(dvSB);
 }
 
 //Sets the sprites to their respective textures and returns the Player character
@@ -1419,8 +1433,10 @@ int main()
 					{
 						if(playSound)
 							bgMusic.play();
-						hp = MAXHP;
+						hp = MAXHP/2;
+						score = score/2;
 						hpText.setString("HP: "+toStr((hp/(MAXHP*1.0))*100)+"%");
+						scoreText.setString("Score: "+toStr(score));
 						Player.setPosition(31,31);
 						enemyVector = tempEnemyVector;
 						itemVector = getItems(&lvlParser);
@@ -1527,8 +1543,10 @@ int main()
 				{
 					if(playSound)
 						bgMusic.play();
-					hp = MAXHP;
+					hp = MAXHP/2;
+					score = score/2;
 					hpText.setString("HP: "+toStr((hp/(MAXHP*1.0))*100)+"%");
+					scoreText.setString("Score: "+toStr(score));
 					Player.setPosition(31,31);
 					enemyVector = tempEnemyVector;
 					itemVector = getItems(&lvlParser);
