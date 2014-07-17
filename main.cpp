@@ -20,7 +20,7 @@ const int BPP = 32;
 const int MOVSPEED = 100;
 const int MAXHP = 100;
 enum Players {SALAH, MOEEZ};
-std::string buildNumber("Copyright(c) 2014 - Ahnaf Tahmid. Build 170714.3");
+std::string buildNumber("Copyright(c) 2014 - Ahnaf Tahmid. Build 170714.4");
 
 //Textures, fonts, sounds and sprites
 sf::Texture bFrameTex;
@@ -1156,7 +1156,7 @@ void setSprites(Character &Player, Players whichPlayer)
 int main()
 {
 	std::srand(std::time(NULL));
-	sf::RenderWindow window(sf::VideoMode(WIDTH, HEIGHT, BPP), "Sweet Run 2");
+	sf::RenderWindow window(sf::VideoMode(WIDTH, HEIGHT, BPP), "Sweet Run 2", sf::Style::Close);
 	window.setVerticalSyncEnabled(true);
 	
 	//Load the textures and fonts
